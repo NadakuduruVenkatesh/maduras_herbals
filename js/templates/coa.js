@@ -205,6 +205,41 @@ function drawProductInfo(page, bold, regular, d) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
+// TEXT WRAP HELPER
+// ═══════════════════════════════════════════════════════════════════════
+function wrapText(font, text, size, maxWidth) {
+  const str    = String(text ?? 'N/A');
+  const result = [];
+
+  function breakWord(word) {
+    let chunk = '';
+    for (const ch of word) {
+      const test = chunk + ch;
+      if (font.widthOfTextAtSize(test, size) <= maxWidth) { chunk = test; }
+      else { if (chunk) result.push(chunk); chunk = ch; }
+    }
+    if (chunk) result.push(chunk);
+  }
+
+  for (const para of str.split('\n')) {
+    const words = para.trim().split(/\s+/);
+    let line = '';
+    for (const word of words) {
+      if (font.widthOfTextAtSize(word, size) > maxWidth) {
+        if (line) { result.push(line); line = ''; }
+        breakWord(word);
+        continue;
+      }
+      const test = line ? line + ' ' + word : word;
+      if (font.widthOfTextAtSize(test, size) <= maxWidth) { line = test; }
+      else { if (line) result.push(line); line = word; }
+    }
+    if (line) result.push(line);
+  }
+  return result.length ? result : ['N/A'];
+}
+
+// ═══════════════════════════════════════════════════════════════════════
 // TABLE HELPERS
 // ═══════════════════════════════════════════════════════════════════════
 function drawTableHeader(page, bold, y, cols) {
@@ -227,28 +262,34 @@ function drawTableHeader(page, bold, y, cols) {
 }
 
 function drawTableRow(page, regular, y, cols, values, alt) {
-  const rh = 18;
-  page.drawRectangle({
-    x: ML, y: y - rh, width: CW, height: rh,
-    color: alt ? COL.rowAlt : COL.rowWhite,
-  });
-  page.drawRectangle({
-    x: ML, y: y - rh, width: CW, height: rh,
-    borderColor: rgb(0.7, 0.7, 0.7), borderWidth: 0.3, color: undefined,
-  });
+  const FS   = 8.5;
+  const LH   = 11;
+  const RPAD = 4;
+
+  const wrapped  = cols.map(({ w }, i) => wrapText(regular, String(values[i] ?? 'N/A'), FS, w - 10));
+  const maxLines = Math.max(...wrapped.map(l => l.length));
+  const rh       = maxLines * LH + 2 * RPAD;
+
+  page.drawRectangle({ x: ML, y: y - rh, width: CW, height: rh, color: alt ? COL.rowAlt : COL.rowWhite });
+  page.drawRectangle({ x: ML, y: y - rh, width: CW, height: rh, borderColor: rgb(0.7, 0.7, 0.7), borderWidth: 0.3, color: undefined });
+
   cols.forEach(({ x, w }, i) => {
-    // vertical divider between columns
     if (i > 0) {
-      page.drawLine({
-        start: { x, y: y },
-        end:   { x, y: y - rh },
-        thickness: 0.5, color: rgb(0.7, 0.7, 0.7),
-      });
+      page.drawLine({ start: { x, y }, end: { x, y: y - rh }, thickness: 0.5, color: rgb(0.7, 0.7, 0.7) });
     }
-    const val = String(values[i] ?? 'N/A');
-    const tw  = regular.widthOfTextAtSize(val, 9);
-    page.drawText(val, { x: x + w / 2 - tw / 2, y: y - rh + 5, size: 9, font: regular, color: COL.black });
+    const lines   = wrapped[i];
+    const blockH  = lines.length * LH;
+    const y0      = y - (rh - blockH) / 2 - FS * 0.85;
+    lines.forEach((line, j) => {
+      const tw = regular.widthOfTextAtSize(line, FS);
+      page.drawText(line, {
+        x:    lines.length === 1 ? x + (w - tw) / 2 : x + 5,
+        y:    y0 - j * LH,
+        size: FS, font: regular, color: COL.black,
+      });
+    });
   });
+
   return y - rh;
 }
 
