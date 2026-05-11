@@ -264,7 +264,7 @@ function drawDynamicCOASection(ctx, sec, startY) {
     const w1 = CW * 0.38, w2 = CW * 0.35, w3 = CW * 0.27;
     cols = [
       { label: (sec.title || '').toUpperCase(), x: ML,           w: w1 },
-      { label: 'SPECIFIED REQUIREMENT',          x: ML + w1,      w: w2 },
+      { label: 'SPECIFICATION',          x: ML + w1,      w: w2 },
       { label: 'RESULT',                         x: ML + w1 + w2, w: w3 },
     ];
   } else {
@@ -346,7 +346,7 @@ function drawAnalyticalTable(ctx, d, startY) {
   const w1 = CW * 0.38, w2 = CW * 0.35, w3 = CW * 0.27;
   const cols = [
     { label: 'ANALYTICAL DATA',       x: ML,          w: w1 },
-    { label: 'SPECIFIED REQUIREMENT', x: ML + w1,      w: w2 },
+    { label: 'SPECIFICATION', x: ML + w1,      w: w2 },
     { label: 'RESULT (%)',            x: ML + w1 + w2, w: w3 },
   ];
 
@@ -396,7 +396,7 @@ function drawMicroTable(ctx, d, startY) {
   const w1 = CW * 0.38, w2 = CW * 0.35, w3 = CW * 0.27;
   const cols = [
     { label: 'MICROBIOLOGICAL DATA',  x: ML,           w: w1 },
-    { label: 'SPECIFIED REQUIREMENT', x: ML + w1,       w: w2 },
+    { label: 'SPECIFICATION', x: ML + w1,       w: w2 },
     { label: 'RESULT',               x: ML + w1 + w2,  w: w3 },
   ];
 
