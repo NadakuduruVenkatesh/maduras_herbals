@@ -219,36 +219,31 @@ function drawAllergenRow(page, regular, y, cols, values, alt) {
 
 // ── Disclaimer ────────────────────────────────────────────────────────
 function drawDisclaimer(ctx, text, y) {
-  const { page, bold, regular } = ctx;
-  const label    = 'DISCLAIMER: ';
-  const body     = text.replace(/^DISCLAIMER[:\s]*/i, '');
-  const lw       = bold.widthOfTextAtSize(label, FS);
-  const allText  = label + body;
-  const lines    = wrapText(regular, allText, FS, CW - 4);
+  const label   = 'DISCLAIMER: ';
+  const body    = text.replace(/^DISCLAIMER[:\s]*/i, '');
+  const lw      = ctx.bold.widthOfTextAtSize(label, FS);
+  const allText = label + body;
+  const lines   = wrapText(ctx.regular, allText, FS, CW - 4);
 
   for (const line of lines) {
     if (y - LH < FOOT_Y) {
       newAllergenPage(ctx);
       y = PH - 65;
     }
-    // First line: bold "DISCLAIMER:" then regular
     if (line.startsWith(label.trim())) {
-      page.drawText(label,       { x: ML, y, size: FS, font: bold,    color: COL.black });
-      page.drawText(line.slice(label.length), { x: ML + lw, y, size: FS, font: regular, color: COL.black });
+      ctx.page.drawText(label,                   { x: ML,      y, size: FS, font: ctx.bold,    color: COL.black });
+      ctx.page.drawText(line.slice(label.length), { x: ML + lw, y, size: FS, font: ctx.regular, color: COL.black });
     } else {
-      page.drawText(line, { x: ML, y, size: FS, font: regular, color: COL.black });
+      ctx.page.drawText(line, { x: ML, y, size: FS, font: ctx.regular, color: COL.black });
     }
     y -= LH;
   }
   return y;
 }
 
-// ── Footer area — disclaimer text / signature ─────────────────────────
+// ── Footer area — signature only ──────────────────────────────────────
 async function drawFooterArea(page, bold, regular, y, doc, d) {
-  page.drawText('*Properties may change season to season & Batch to Batch', {
-    x: ML, y: y - 10, size: 9, font: regular, color: COL.black,
-  });
-  const sigY = y - 32;
+  const sigY = y - 10;
   if (d._sigOption === 1) {
     const text = 'This is a computer-generated document and does not require a signature.';
     page.drawText(text, { x: ML, y: sigY, size: 8.5, font: regular, color: COL.black });
