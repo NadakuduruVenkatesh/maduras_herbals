@@ -43,6 +43,28 @@ Rules:
   Yeast & Mould, E. Coli, Salmonella / 25g
 - Return NOTHING except the raw JSON object`,
 
+  allergen: `You are an Allergen Declaration data extractor for Maduras Herbals.
+When given an allergen certificate/declaration source document, extract and return ONLY a valid JSON object with this exact structure — no explanation, no markdown fences, just raw JSON:
+
+{
+  "title": "",
+  "product_name": "",
+  "botanical_name": "",
+  "allergens": [
+    { "material": "", "cas_number": "", "inclusion": "" }
+  ],
+  "disclaimer": ""
+}
+
+Rules:
+- title: extract the document title exactly as it appears (e.g. "DECLARATION OF ALLERGENS")
+- product_name: extract the product name
+- botanical_name: extract the botanical/scientific name
+- allergens: extract ALL rows from the allergen table — each row must have material name, CAS number, and inclusion % value (use "-" if absent or not detected)
+- disclaimer: extract the full disclaimer text as a single string
+- If a field is not found, use "N/A"
+- Return NOTHING except the raw JSON object`,
+
   msds: `You are an MSDS (Material Safety Data Sheet) data extractor for Maduras Herbals.
 When given an MSDS source document, extract and return ONLY a valid JSON object with
 this exact structure — no explanation, no markdown fences, just raw JSON:

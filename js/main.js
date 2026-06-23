@@ -6,6 +6,7 @@ import { requireAuth, getName, clearSession } from './auth.js';
 import { extractDataFromPDF, generateFromName } from './extractor.js';
 import { generatePDF as coaGenerate        } from './templates/coa.js';
 import { generatePDF as msdsGenerate       } from './templates/msds.js';
+import { generatePDF as allergenGenerate   } from './templates/allergen.js';
 
 // ── Auth guard ────────────────────────────────────────────────────────
 if (!requireAuth()) throw new Error('Not authenticated');
@@ -22,8 +23,9 @@ document.getElementById('logoutBtn').addEventListener('click', () => {
 
 // ── Template Router ───────────────────────────────────────────────────
 async function routeToTemplate(templateId, dataJson, fileName) {
-  if (templateId === 'coa')  return await coaGenerate(dataJson, fileName);
-  if (templateId === 'msds') return await msdsGenerate(dataJson, fileName);
+  if (templateId === 'coa')      return await coaGenerate(dataJson, fileName);
+  if (templateId === 'msds')     return await msdsGenerate(dataJson, fileName);
+  if (templateId === 'allergen') return await allergenGenerate(dataJson, fileName);
   throw new Error(`No handler registered for template: "${templateId}"`);
 }
 
@@ -380,6 +382,11 @@ editContent.addEventListener('click', (e) => {
       makeCOASection({ title: 'NEW SECTION', type: '3col', rows: [] }));
     return;
   }
+  // Allergen: add row
+  if (t.id === 'addAllergenRow') {
+    document.getElementById('allergenTbody').insertAdjacentHTML('beforeend', makeAllergenRow('', '', '-'));
+    return;
+  }
 });
 
 
@@ -388,7 +395,9 @@ document.getElementById('downloadWordBtn').addEventListener('click', () => {
   if (!extractedTemplateId) return;
   try {
     const data = readDataFromPreview(extractedTemplateId);
-    const body = extractedTemplateId === 'msds' ? buildMSDSWordHTML(data) : buildCOAWordHTML(data);
+    const body = extractedTemplateId === 'msds'     ? buildMSDSWordHTML(data)
+               : extractedTemplateId === 'allergen' ? buildAllergenWordHTML(data)
+               : buildCOAWordHTML(data);
     const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office"
       xmlns:w="urn:schemas-microsoft-com:office:word"
       xmlns="http://www.w3.org/TR/REC-html40">
@@ -478,13 +487,15 @@ downloadPdfBtn.addEventListener('click', () => {
 
 // ── Render Preview Router ─────────────────────────────────────────────
 function renderEditablePreview(templateId, data) {
-  if (templateId === 'coa')  renderCOAEditor(data);
-  if (templateId === 'msds') renderMSDSEditor(data);
+  if (templateId === 'coa')      renderCOAEditor(data);
+  if (templateId === 'msds')     renderMSDSEditor(data);
+  if (templateId === 'allergen') renderAllergenEditor(data);
 }
 
 function readDataFromPreview(templateId) {
-  if (templateId === 'coa')  return readCOAData();
-  if (templateId === 'msds') return readMSDSData();
+  if (templateId === 'coa')      return readCOAData();
+  if (templateId === 'msds')     return readMSDSData();
+  if (templateId === 'allergen') return readAllergenData();
   throw new Error('Unknown template');
 }
 
@@ -954,6 +965,126 @@ function makeCOASection(sec) {
   `;
 }
 
+
+// ── Allergen Editor ──────────────────────────────────────────────────
+function renderAllergenEditor(data) {
+  const allergens  = data.allergens  || [];
+  const disclaimer = data.disclaimer || '';
+
+  sigSelectedBytes = null;
+  editContent.innerHTML = sigControlHTML() + docControlHTML('ALLERGEN-', 'maduras_docNum_allergen') + `
+    <div style="margin-bottom:6px;padding:10px 14px;background:#fffbe6;border:1.5px solid #f0c040;border-radius:7px;font-size:12px;color:#7a5800">
+      <b>Full Edit Mode:</b> Edit all fields, add or remove allergen rows, edit disclaimer.
+    </div>
+
+    <div class="edit-group">
+      <div class="edit-group-title">Document Title</div>
+      <div class="edit-fields">
+        <div class="edit-field full-width">
+          <label>Title</label>
+          <input type="text" id="ef__allergenTitle" value="${esc(data._title || data.title || 'DECLARATION OF ALLERGENS')}" />
+        </div>
+      </div>
+    </div>
+
+    <div class="edit-group">
+      <div class="edit-group-title">Product Information</div>
+      <div class="edit-fields">
+        <div class="edit-field">
+          <label>Product Name</label>
+          <input type="text" id="ef__productName" value="${esc(data.product_name || '')}" />
+        </div>
+        <div class="edit-field">
+          <label>Botanical Name</label>
+          <input type="text" id="ef__botanicalName" value="${esc(data.botanical_name || '')}" />
+        </div>
+      </div>
+    </div>
+
+    <div class="edit-group">
+      <div class="edit-group-title">Allergen Table</div>
+      <div class="edit-table-wrap">
+        <table class="edit-table">
+          <thead>
+            <tr>
+              <th style="width:46%">Material</th>
+              <th style="width:27%">CAS Number</th>
+              <th>Inclusion (%)</th>
+              <th class="del-col"></th>
+            </tr>
+          </thead>
+          <tbody id="allergenTbody">
+            ${allergens.map(a => makeAllergenRow(a.material || '', a.cas_number || '', a.inclusion || '-')).join('')}
+          </tbody>
+        </table>
+      </div>
+      <button class="add-row-btn" id="addAllergenRow" type="button">+ Add Row</button>
+    </div>
+
+    <div class="edit-group">
+      <div class="edit-group-title">Disclaimer</div>
+      <div class="edit-fields">
+        <div class="edit-field full-width">
+          <textarea id="ef__disclaimer" style="min-height:90px">${esc(disclaimer)}</textarea>
+        </div>
+      </div>
+    </div>
+  `;
+  setupSigHandlers();
+}
+
+function readAllergenData() {
+  const allergens = [];
+  document.querySelectorAll('#allergenTbody tr').forEach(tr => {
+    const inputs = tr.querySelectorAll('input[type="text"]');
+    allergens.push({
+      material:   (inputs[0]?.value || '').trim(),
+      cas_number: (inputs[1]?.value || '').trim(),
+      inclusion:  (inputs[2]?.value || '').trim() || '-',
+    });
+  });
+
+  const sigOption = parseInt(document.querySelector('input[name="sigOption"]:checked')?.value || '1');
+  if (sigOption === 2 && !sigSelectedBytes) throw new Error('Please select or upload a signature image for Option 2.');
+
+  return {
+    _edited:       true,
+    _title:        (document.getElementById('ef__allergenTitle')?.value || 'DECLARATION OF ALLERGENS').trim(),
+    _docNo:        (document.getElementById('ef__docNo')?.value  || '').trim(),
+    _docDate:      formatDateForPDF(document.getElementById('ef__docDate')?.value),
+    _sigOption:    sigOption,
+    _sigBytes:     sigOption === 2 ? sigSelectedBytes : null,
+    product_name:  (document.getElementById('ef__productName')?.value  || '').trim(),
+    botanical_name:(document.getElementById('ef__botanicalName')?.value || '').trim(),
+    allergens,
+    disclaimer:    (document.getElementById('ef__disclaimer')?.value || '').trim(),
+  };
+}
+
+function makeAllergenRow(material, casNumber, inclusion) {
+  return `<tr>
+    <td><input type="text" value="${esc(material)}" /></td>
+    <td><input type="text" value="${esc(casNumber)}" /></td>
+    <td><input type="text" value="${esc(inclusion || '-')}" /></td>
+    <td><button class="del-btn" type="button" title="Remove row">✕</button></td>
+  </tr>`;
+}
+
+function buildAllergenWordHTML(data) {
+  return `<h1>MADURAS HERBALS</h1>
+<p class="sub">Connecting Nature to You</p>
+<p class="docinfo">Doc No: ${esc(data._docNo)} &nbsp;&nbsp;&nbsp; Date: ${esc(data._docDate)}</p>
+<h2 style="text-align:center;text-decoration:underline">${esc(data._title || 'DECLARATION OF ALLERGENS')}</h2>
+<p><b>Product Name:</b> ${esc(data.product_name)}</p>
+<p><b>Botanical Name:</b> <i>${esc(data.botanical_name)}</i></p>
+<table>
+  <tr><th style="width:46%">MATERIAL</th><th style="width:27%">CAS NUMBER</th><th>COSMETIC ALLERGENS INCLUSION (%)</th></tr>
+  ${(data.allergens || []).map(a =>
+    `<tr><td>${esc(a.material)}</td><td>${esc(a.cas_number)}</td><td>${esc(a.inclusion || '-')}</td></tr>`
+  ).join('')}
+</table>
+<p><b>DISCLAIMER:</b> ${esc(data.disclaimer)}</p>`;
+}
 
 // ── Utility ───────────────────────────────────────────────────────────
 function buildOutputName(originalName, templateId) {
